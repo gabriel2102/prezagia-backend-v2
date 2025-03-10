@@ -1,0 +1,82 @@
+# Entorno virtual de Python
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# Variables de entorno y configuraciones sensibles
+.env
+.env.local
+.env.*.local
+
+# Archivos generados por Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Datos persistentes y logs
+data/
+logs/
+*.log
+log.txt
+log*.txt
+
+# Archivos de IDE y editores
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+*~
+.project
+.pydevproject
+.settings/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Archivos específicos de Skyfield
+skyfield-data/
+de421.bsp
+
+# Archivos específicos de Docker
+docker-compose.override.yml
+
+# Archivos temporales
+.tmp/
+tmp/
+temp/
+.cache/
+
+# Archivos de base de datos local
+*.db
+*.sqlite
+*.sqlite3
+
+# Documentación generada
+docs/_build/
+site/
+
+# Archivos de certificados y secretos
+*.pem
+*.key
+*.crt
+*.cert
