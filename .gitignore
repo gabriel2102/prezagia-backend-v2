@@ -80,3 +80,5 @@ site/
 *.key
 *.crt
 *.cert
+
+*.env

@@ -88,11 +88,11 @@ async def create_compatibility(
 
 @router.get("", response_model=List[CompatibilityResponse])
 async def read_user_compatibilities(
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
     compatibility_type: Optional[CompatibilityType] = None,
     name: Optional[str] = None,
     skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=50),
-    current_user: Annotated[UserResponse, Depends(get_current_user)]
+    limit: int = Query(20, ge=1, le=50)
 ):
     """
     Obtiene todos los análisis de compatibilidad del usuario actual con filtros opcionales.

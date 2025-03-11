@@ -72,11 +72,11 @@ async def create_chart(
 
 @router.get("", response_model=List[ChartResponse])
 async def read_user_charts(
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
     chart_type: Optional[ChartType] = None,
     name: Optional[str] = None,
     skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=50),
-    current_user: Annotated[UserResponse, Depends(get_current_user)]
+    limit: int = Query(20, ge=1, le=50),   
 ):
     """
     Obtiene todas las cartas astrales del usuario actual con filtros opcionales.
@@ -132,9 +132,9 @@ async def read_chart_detail(
 
 @router.post("/{chart_id}/interpret", response_model=ChartDetail)
 async def reinterpret_chart(
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
     chart_id: str,
-    interpretation_depth: int = Query(2, ge=1, le=5),
-    current_user: Annotated[UserResponse, Depends(get_current_user)]
+    interpretation_depth: int = Query(2, ge=1, le=5)
 ):
     """
     Reinterpreta una carta astral existente con una profundidad diferente.

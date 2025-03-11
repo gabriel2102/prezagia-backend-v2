@@ -22,6 +22,10 @@ from app.core.config import settings
 from app.core.exceptions import CalculationError
 from app.schemas.astrology import ChartType, PredictionPeriod
 
+from datetime import timedelta
+from app.schemas.astrology import CompatibilityType
+
+
 
 # Configuraciones
 SKYFIELD_DATA_DIR = settings.SKYFIELD_DATA_DIR
