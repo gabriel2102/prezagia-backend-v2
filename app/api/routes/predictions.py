@@ -86,14 +86,14 @@ async def create_prediction(
 
 @router.get("", response_model=List[PredictionResponse])
 async def read_user_predictions(
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
     prediction_type: Optional[PredictionType] = None,
     period: Optional[PredictionPeriod] = None,
     name: Optional[str] = None,
     from_date: Optional[date] = None,
     to_date: Optional[date] = None,
     skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=50),
-    current_user: Annotated[UserResponse, Depends(get_current_user)]
+    limit: int = Query(20, ge=1, le=50)
 ):
     """
     Obtiene todas las predicciones del usuario actual con filtros opcionales.
@@ -121,8 +121,8 @@ async def read_user_predictions(
 
 @router.get("/{prediction_id}", response_model=PredictionDetail)
 async def read_prediction_detail(
-    prediction_id: str,
-    current_user: Annotated[UserResponse, Depends(get_current_user)]
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
+    prediction_id: str
 ):
     """
     Obtiene detalles completos de una predicción específica.
@@ -152,9 +152,9 @@ async def read_prediction_detail(
 
 @router.post("/{prediction_id}/refine", response_model=PredictionDetail)
 async def refine_prediction(
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
     prediction_id: str,
-    focus_areas: List[str],
-    current_user: Annotated[UserResponse, Depends(get_current_user)]
+    focus_areas: List[str]
 ):
     """
     Refina una predicción existente enfocándose en áreas específicas.
@@ -207,8 +207,8 @@ async def refine_prediction(
 
 @router.delete("/{prediction_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user_prediction(
+    current_user: Annotated[UserResponse, Depends(get_current_user)],
     prediction_id: str,
-    current_user: Annotated[UserResponse, Depends(get_current_user)]
 ):
     """
     Elimina una predicción existente.

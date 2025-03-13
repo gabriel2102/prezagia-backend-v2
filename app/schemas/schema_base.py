@@ -6,7 +6,7 @@ Este módulo define esquemas base reutilizables utilizados por otros modelos.
 
 from datetime import datetime, date, time
 from typing import Optional, List, Dict, Any, Union
-from pydantic import BaseModel, Field, validator, EmailStr
+from pydantic import BaseModel, Field, EmailStr
 from uuid import UUID
 
 

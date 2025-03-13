@@ -1234,111 +1234,97 @@ async def interpret_compatibility(compatibility_calculation: Dict[str, Any],
     Interpreta un análisis de compatibilidad astrológica.
     
     Args:
-        compatibility_calculation: Resultado del cálculo de compatibilidad
-        compatibility_type: Tipo de compatibilidad
-        focus_areas: Áreas específicas para enfocar la interpretación
+        compatibility_calculation: Resultado del cálculo de compatibilidad.
+        compatibility_type: Tipo de compatibilidad.
+        focus_areas: Áreas específicas para enfocar la interpretación.
     
     Returns:
-        Dict: Interpretación completa de la compatibilidad
+        Dict: Interpretación completa de la compatibilidad.
     """
     try:
         logger.info(f"Interpretando compatibilidad tipo {compatibility_type}")
         
-        # Inicializar el resultado
+        # Inicializar el resultado asegurando que todas las claves esperadas están presentes
         interpretation = {
             "summary": "",
             "strengths": [],
             "challenges": [],
             "dynamics": {},
-            "compatibility_score": compatibility_calculation.get("compatibility_score", 0)
+            "compatibility_score": compatibility_calculation.get("compatibility_score", 0),
+            "compatibilities": compatibility_calculation.get("compatibilities", [])  # Asegurar compatibilities
         }
         
         # Extraer datos básicos
         chart1 = compatibility_calculation.get("chart1", {})
         chart2 = compatibility_calculation.get("chart2", {})
-        
+
         person1_sun = chart1.get("sun_sign", "desconocido")
         person1_moon = chart1.get("moon_sign", "desconocido")
         person1_asc = chart1.get("rising_sign", "desconocido")
-        
+
         person2_sun = chart2.get("sun_sign", "desconocido")
         person2_moon = chart2.get("moon_sign", "desconocido")
         person2_asc = chart2.get("rising_sign", "desconocido")
-        
+
         # Obtener aspectos entre las cartas
         synastry_aspects = compatibility_calculation.get("synastry_aspects", [])
-        
+
         # Generar resumen básico
-        summary = generate_compatibility_summary(
+        interpretation["summary"] = generate_compatibility_summary(
             compatibility_type,
             person1_sun, person1_moon, person1_asc,
             person2_sun, person2_moon, person2_asc,
             compatibility_calculation.get("compatibility_score", 0)
         )
-        
+
         # Analizar fortalezas y desafíos
-        strengths = []
-        challenges = []
-        
-        # Usar fortalezas y desafíos precalculados si existen
-        if "strengths" in compatibility_calculation and compatibility_calculation["strengths"]:
-            strengths = compatibility_calculation["strengths"]
-        if "challenges" in compatibility_calculation and compatibility_calculation["challenges"]:
-            challenges = compatibility_calculation["challenges"]
-        
-        # Si no hay precalculados, generarlos desde los aspectos
+        strengths = compatibility_calculation.get("strengths", [])
+        challenges = compatibility_calculation.get("challenges", [])
+
+        # Si no hay fortalezas o desafíos precalculados, generarlos desde los aspectos
         if not strengths or not challenges:
             for aspect in synastry_aspects:
                 aspect_type = aspect.get("aspect_type", "")
                 planet1 = aspect.get("person1_planet", aspect.get("planet1", ""))
                 planet2 = aspect.get("person2_planet", aspect.get("planet2", ""))
                 power = aspect.get("power", 5)
-                
+
                 if power > 7:  # Solo incluir los aspectos más significativos
                     if aspect_type in ["trígono", "sextil"] or (aspect_type == "conjunción" and aspect.get("nature") == "favorable"):
                         strength = get_compatibility_strength(planet1, planet2, aspect_type, compatibility_type)
                         if strength:
                             strengths.append(strength)
-                    
+
                     elif aspect_type in ["cuadratura", "oposición"] or (aspect_type == "conjunción" and aspect.get("nature") == "desafiante"):
                         challenge = get_compatibility_challenge(planet1, planet2, aspect_type, compatibility_type)
                         if challenge:
                             challenges.append(challenge)
-        
+
         # Limitar cantidad de fortalezas y desafíos
-        strengths = strengths[:5]  # Máximo 5 fortalezas
-        challenges = challenges[:5]  # Máximo 5 desafíos
-        
+        interpretation["strengths"] = strengths[:5]  # Máximo 5 fortalezas
+        interpretation["challenges"] = challenges[:5]  # Máximo 5 desafíos
+
         # Generar dinámicas de la relación
-        dynamics = generate_compatibility_dynamics(
+        interpretation["dynamics"] = generate_compatibility_dynamics(
             compatibility_type,
             person1_sun, person1_moon, person1_asc,
             person2_sun, person2_moon, person2_asc,
             synastry_aspects
         )
-        
+
         # Analizar áreas de enfoque específicas
-        focus_interpretations = {}
         if focus_areas:
-            for area in focus_areas:
-                focus_interpretations[area] = interpret_compatibility_area(
+            interpretation["focus_areas"] = {
+                area: interpret_compatibility_area(
                     compatibility_calculation,
                     area,
                     compatibility_type
-                )
-        
-        # Construir el resultado final
-        interpretation["summary"] = summary
-        interpretation["strengths"] = strengths
-        interpretation["challenges"] = challenges
-        interpretation["dynamics"] = dynamics
-        
-        if focus_interpretations:
-            interpretation["focus_areas"] = focus_interpretations
-        
-        logger.info(f"Interpretación de compatibilidad completada")
+                ) for area in focus_areas
+            }
+
+        logger.info("Interpretación de compatibilidad completada")
         return interpretation
-        
+
     except Exception as e:
         logger.error(f"Error al interpretar compatibilidad: {str(e)}")
         raise InterpretationError(message=f"Error al interpretar compatibilidad: {str(e)}", 

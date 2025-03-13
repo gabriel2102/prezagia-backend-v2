@@ -9,13 +9,14 @@ from datetime import datetime, date, time
 from typing import Dict, Any, List, Optional, Tuple
 import os
 import numpy as np
+import requests
 
 from skyfield.api import load, wgs84, Star, load_file
 from skyfield.data import hipparcos
-from skyfield.constants import GM_SUN
 from skyfield.elementslib import osculating_elements_of
 from skyfield.framelib import ecliptic_frame
 from skyfield.searchlib import find_discrete, find_maxima
+from skyfield.timelib import Time
 
 from app.core.logger import logger
 from app.core.config import settings
@@ -35,38 +36,30 @@ SKYFIELD_DATA_DIR = settings.SKYFIELD_DATA_DIR
 def load_ephemeris():
     """
     Carga las efemérides planetarias desde Skyfield.
-    
+
     Returns:
         tuple: (ts, eph) donde ts es el objeto timescale y eph es el objeto ephemeris
     """
     try:
         # Crear el directorio de datos si no existe
         os.makedirs(SKYFIELD_DATA_DIR, exist_ok=True)
-        
-        # Cargar el objeto timescale y las efemérides
+
+        # Cargar el objeto timescale
         ts = load.timescale()
+
+        # Cargar efemérides directamente desde Skyfield (sin descargar manualmente)
+        logger.info("Cargando efemérides DE421 desde Skyfield...")
+        eph = load("de421.bsp")  # ❌ Elimina cualquier intento de descarga manual
         
-        # Intentar cargar las efemérides desde el sistema de archivos
-        eph_path = os.path.join(SKYFIELD_DATA_DIR, 'de421.bsp')
-        
-        # Si no existen localmente, descargarlas
-        if not os.path.exists(eph_path):
-            logger.info("Descargando efemérides DE421...")
-            eph = load('de421.bsp', directory=SKYFIELD_DATA_DIR)
-            logger.info("Efemérides descargadas correctamente")
-        else:
-            logger.info("Cargando efemérides locales DE421")
-            eph = load_file(eph_path)
-        
+        logger.info("Efemérides cargadas correctamente desde Skyfield")
         return ts, eph
-    
+
     except Exception as e:
         logger.error(f"Error al cargar efemérides: {str(e)}")
         raise CalculationError(message=f"Error al cargar efemérides: {str(e)}", 
                               calculation_type="carga_datos")
 
-
-# Objetos globales para cálculos
+# Objetos globales para cálculos astronómicos
 try:
     ts, eph = load_ephemeris()
     
@@ -83,7 +76,7 @@ try:
     neptune = eph['neptune barycenter']
     pluto = eph['pluto barycenter']
     
-    # Diccionario de planetas para facilitar el acceso
+    # Diccionario de planetas
     planets = {
         'sun': sun,
         'moon': moon,
@@ -96,12 +89,11 @@ try:
         'neptune': neptune,
         'pluto': pluto
     }
-    
+
     logger.info("Objetos astronómicos cargados correctamente")
-    
+
 except Exception as e:
     logger.error(f"Error al inicializar objetos astronómicos: {str(e)}")
-
 
 # Signos del zodíaco
 ZODIAC_SIGNS = [
@@ -309,14 +301,14 @@ def calculate_planet_position(planet_key: str, t) -> Dict[str, Any]:
         
         # Calcular la posición geocéntrica
         astrometric = earth.at(t).observe(planet)
-        ecliptic = astrometric.frame_latlon(ecliptic_frame)
-        
+        ecliptic = astrometric.ecliptic_latlon()
+
         # Extraer coordenadas eclípticas
         lat, lon, _ = ecliptic
         
         # Convertir a grados
-        longitude = lon.degrees % 360
-        latitude = lat.degrees
+        longitude = lon._degrees % 360
+        latitude = lat._degrees
         
         # Determinar el signo zodiacal
         sign = get_zodiac_sign(longitude)
@@ -330,13 +322,11 @@ def calculate_planet_position(planet_key: str, t) -> Dict[str, Any]:
             # Calcular la velocidad para determinar si es retrógrado
             t1 = ts.tt(jd=t.tt + 1)
             astrometric1 = earth.at(t1).observe(planet)
-            ecliptic1 = astrometric1.frame_latlon(ecliptic_frame)
-            lon1 = ecliptic1[1].degrees
+            ecliptic1 = astrometric1.ecliptic_latlon()
+            lon1 = ecliptic1[1]._degrees
             
-            # Si la diferencia es negativa, el planeta se mueve hacia atrás (retrógrado)
-            speed = (lon1 - lon.degrees) % 360
-            if speed > 180:
-                speed -= 360
+            # Determinar velocidad y si está retrógrado
+            speed = lon1 - longitude
             is_retrograde = speed < 0
         
         # Calcular la dignidad del planeta en el signo
@@ -349,7 +339,7 @@ def calculate_planet_position(planet_key: str, t) -> Dict[str, Any]:
             "longitude": longitude,
             "latitude": latitude,
             "position_in_sign": position_in_sign,
-            "degree": f"{int(position_in_sign)}° {int(position_in_sign * 60) % 60}' {sign}",
+            "degree": f"{int(position_in_sign)}° {int((position_in_sign % 30) * 60) % 60}' {sign}",
             "retrograde": is_retrograde,
             "speed": speed if 'speed' in locals() else None,
             "dignity": dignity
@@ -363,124 +353,119 @@ def calculate_planet_position(planet_key: str, t) -> Dict[str, Any]:
                               calculation_type="posición_planetaria")
 
 
-def calculate_ascendant(t, latitude: float, longitude: float) -> Dict[str, Any]:
+def calculate_ascendant(t: Time, latitude: float, longitude: float) -> Dict[str, Any]:
     """
-    Calcula el ascendente (signo que asciende por el horizonte) para un momento y lugar específicos.
-    
+    Calcula el ascendente (signo zodiacal que asciende en el horizonte) para un momento y ubicación dados.
+
     Args:
-        t: Tiempo de Skyfield
-        latitude: Latitud del lugar en grados
-        longitude: Longitud del lugar en grados
-    
+        t (Time): Objeto de tiempo de Skyfield.
+        latitude (float): Latitud en grados.
+        longitude (float): Longitud en grados.
+
     Returns:
-        Dict: Información sobre el ascendente
+        Dict: Información sobre el ascendente.
     """
     try:
-        # Crear ubicación terrestre
-        location = earth + wgs84.latlon(latitude, longitude)
-        
-        # Obtener la hora sideral local
-        lst = location.lst_hours_at(t)
-        lst_degrees = (lst * 15) % 360
-        
-        # Convertir a radianes para cálculos
+        # Obtener la hora sidérea local (LST) usando la función corregida
+        lst_degrees = get_sidereal_time(t, longitude) * 15  # Convertir horas a grados
+
+        # Convertir a radianes para cálculos trigonométricos
         lat_rad = np.radians(latitude)
-        
+
         # Calcular la oblicuidad de la eclíptica (ε)
-        ecliptic_obliquity = 23.4393 - 0.0000004 * (t.tt - 2451545.0) / 36525
+        ecliptic_obliquity = 23.4393 - 0.0000004 * (t.tt - 2451545.0) / 36525  # Oblicuidad promedio
         epsilon_rad = np.radians(ecliptic_obliquity)
-        
-        # Calcular el ascendente usando la fórmula estándar
-        tan_asc = np.cos(epsilon_rad) * np.sin(np.radians(lst_degrees)) / (np.cos(np.radians(lst_degrees)) * np.sin(lat_rad) + np.sin(epsilon_rad) * np.sin(np.radians(lst_degrees)) * np.cos(lat_rad))
+
+        # Calcular la tangente del ascendente
+        tan_asc = (
+            np.cos(epsilon_rad) * np.sin(np.radians(lst_degrees))
+        ) / (
+            np.cos(np.radians(lst_degrees)) * np.sin(lat_rad)
+            + np.sin(epsilon_rad) * np.sin(np.radians(lst_degrees)) * np.cos(lat_rad)
+        )
+
+        # Convertir la tangente a grados
         asc_rad = np.arctan(tan_asc)
-        
-        # Convertir a grados y ajustar el cuadrante
         asc_deg = np.degrees(asc_rad)
-        
-        # Ajustar el cuadrante basado en LST
+
+        # Ajustar el cuadrante según LST
         if 90 <= lst_degrees < 270:
             asc_deg += 180
-        
-        # Normalizar a 0-360 grados
+
+        # Normalizar el ángulo a 0-360°
         asc_deg = asc_deg % 360
-        
-        # Determinar el signo zodiacal
+
+        # Determinar el signo zodiacal del ascendente
         sign = get_zodiac_sign(asc_deg)
-        
-        # Posición dentro del signo
+
+        # Posición dentro del signo zodiacal (0-30°)
         position_in_sign = asc_deg % 30
-        
+
         return {
             "longitude": asc_deg,
             "sign": sign,
             "position_in_sign": position_in_sign,
             "degree": f"{int(position_in_sign)}° {int(position_in_sign * 60) % 60}' {sign}"
         }
-    
+
     except Exception as e:
         logger.error(f"Error al calcular ascendente: {str(e)}")
-        raise CalculationError(message=f"Error al calcular el ascendente: {str(e)}", 
-                              calculation_type="ascendente")
+        raise CalculationError(message=f"Error al calcular el ascendente: {str(e)}", calculation_type="ascendente")
 
 
-def calculate_midheaven(t, latitude: float, longitude: float) -> Dict[str, Any]:
+def calculate_midheaven(t: Time, latitude: float, longitude: float) -> Dict[str, Any]:
     """
-    Calcula el medio cielo (MC) para un momento y lugar específicos.
-    
+    Calcula el Medio Cielo (MC) para un momento y lugar específicos.
+
     Args:
-        t: Tiempo de Skyfield
-        latitude: Latitud del lugar en grados
-        longitude: Longitud del lugar en grados
-    
+        t (Time): Objeto de tiempo de Skyfield.
+        latitude (float): Latitud en grados.
+        longitude (float): Longitud en grados.
+
     Returns:
-        Dict: Información sobre el medio cielo
+        Dict: Información sobre el Medio Cielo (MC).
     """
     try:
-        # Crear ubicación terrestre
-        location = earth + wgs84.latlon(latitude, longitude)
-        
-        # Obtener la hora sideral local
-        lst = location.lst_hours_at(t)
-        lst_degrees = (lst * 15) % 360
-        
+        # Obtener la hora sidérea local (LST) usando la función corregida
+        lst_degrees = get_sidereal_time(t, longitude) * 15  # Convertir horas a grados
+
         # Convertir LST a radianes
         lst_rad = np.radians(lst_degrees)
-        
+
         # Calcular la oblicuidad de la eclíptica (ε)
-        ecliptic_obliquity = 23.4393 - 0.0000004 * (t.tt - 2451545.0) / 36525
+        ecliptic_obliquity = 23.4393 - 0.0000004 * (t.tt - 2451545.0) / 36525  # Oblicuidad promedio
         epsilon_rad = np.radians(ecliptic_obliquity)
-        
-        # Calcular el Medio Cielo (MC)
+
+        # Calcular la tangente del Medio Cielo (MC)
         tan_mc = np.tan(lst_rad) / np.cos(epsilon_rad)
+
+        # Convertir la tangente a grados
         mc_rad = np.arctan(tan_mc)
-        
-        # Convertir a grados y ajustar el cuadrante
         mc_deg = np.degrees(mc_rad)
-        
+
         # Ajustar el cuadrante basado en LST
         if 90 <= lst_degrees < 270:
             mc_deg += 180
-        
-        # Normalizar a 0-360 grados
+
+        # Normalizar el ángulo a 0-360°
         mc_deg = mc_deg % 360
-        
-        # Determinar el signo zodiacal
+
+        # Determinar el signo zodiacal del Medio Cielo
         sign = get_zodiac_sign(mc_deg)
-        
-        # Posición dentro del signo
+
+        # Posición dentro del signo zodiacal (0-30°)
         position_in_sign = mc_deg % 30
-        
+
         return {
             "longitude": mc_deg,
             "sign": sign,
             "position_in_sign": position_in_sign,
             "degree": f"{int(position_in_sign)}° {int(position_in_sign * 60) % 60}' {sign}"
         }
-    
+
     except Exception as e:
         logger.error(f"Error al calcular medio cielo: {str(e)}")
-        raise CalculationError(message=f"Error al calcular el medio cielo: {str(e)}", 
-                              calculation_type="medio_cielo")
+        raise CalculationError(message=f"Error al calcular el medio cielo: {str(e)}", calculation_type="medio_cielo")
 
 
 def calculate_houses(t, latitude: float, longitude: float, system: str = "placidus") -> Dict[str, Any]:
@@ -1553,3 +1538,25 @@ def calculate_composite_positions(chart1: Dict[str, Any], chart2: Dict[str, Any]
         composite["rising_sign"] = composite["points"]["ascendant"]["sign"]
     
     return composite
+
+def get_sidereal_time(t: Time, longitude: float) -> float:
+    """
+    Calcula el tiempo sidéreo local en horas para una ubicación dada.
+
+    Args:
+        t (Time): Objeto de tiempo de Skyfield
+        longitude (float): Longitud geográfica en grados
+
+    Returns:
+        float: Tiempo sidéreo local en horas
+    """
+    try:
+        # Obtener GMST (Tiempo Sidéreo Medio de Greenwich) desde el objeto Time
+        gmst = t.gmst  # Ahora se obtiene directamente de 't'
+
+        # Convertir GMST a Tiempo Sidéreo Local (LST)
+        lst = (gmst + longitude / 15) % 24  # 15° de longitud = 1 hora
+
+        return lst
+    except Exception as e:
+        raise ValueError(f"Error al calcular tiempo sidéreo local: {str(e)}")

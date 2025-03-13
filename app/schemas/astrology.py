@@ -7,7 +7,7 @@ Este módulo define los modelos de datos relacionados con los cálculos e interp
 from datetime import datetime, date, time
 from typing import Optional, List, Dict, Any, Union, Literal
 from enum import Enum
-from pydantic import BaseModel, Field, validator, root_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.schemas.schema_base import BaseResponseModel
 
@@ -80,7 +80,7 @@ class ChartCreate(ChartBase):
     person2_longitude: Optional[float] = Field(None, ge=-180, le=180, description="Longitud del lugar de la segunda persona")
     person2_location_name: Optional[str] = Field(None, description="Nombre del lugar de la segunda persona")
     
-    @root_validator
+    @model_validator(mode="after")
     def validate_chart_requirements(cls, values):
         """Validar que los campos requeridos estén presentes según el tipo de carta."""
         chart_type = values.get('chart_type')
@@ -179,14 +179,14 @@ class PredictionCreate(PredictionBase):
     # Período personalizado (opcional)
     end_date: Optional[date] = Field(None, description="Fecha de fin para período personalizado")
     
-    @validator('end_date')
+    @field_validator('end_date')
     def validate_end_date(cls, v, values):
         """Validar que la fecha de fin sea posterior a la fecha de predicción."""
         if v and 'prediction_date' in values and v <= values['prediction_date']:
             raise ValueError("La fecha de fin debe ser posterior a la fecha de predicción")
         return v
     
-    @root_validator
+    @model_validator(mode="after")
     def validate_custom_period(cls, values):
         """Validar que para períodos personalizados se proporcione una fecha de fin."""
         if values.get('prediction_period') == PredictionPeriod.CUSTOM and not values.get('end_date'):

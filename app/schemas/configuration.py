@@ -7,7 +7,7 @@ y configuraciones personalizadas de los usuarios.
 
 from datetime import datetime, time
 from typing import Optional, List, Dict, Any, Literal
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
 
 from app.schemas.schema_base import BaseResponseModel
 

@@ -6,7 +6,7 @@ Este módulo define los modelos de datos relacionados con la gestión de usuario
 
 from datetime import datetime, date, time
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, validator, EmailStr, root_validator
+from pydantic import BaseModel, Field, field_validator, EmailStr
 from uuid import UUID
 
 from app.schemas.schema_base import BaseResponseModel
@@ -27,7 +27,7 @@ class UserCreate(UserBase):
     lugar_nacimiento_lng: float = Field(..., ge=-180, le=180, description="Longitud del lugar de nacimiento")
     lugar_nacimiento_nombre: Optional[str] = Field(None, description="Nombre del lugar de nacimiento")
     
-    @validator('hora_nacimiento')
+    @field_validator('hora_nacimiento')
     def validate_birth_time(cls, v):
         """Validar que la hora de nacimiento tenga segundos y microsegundos en cero."""
         if v.second != 0 or v.microsecond != 0:
@@ -50,7 +50,7 @@ class UserUpdate(BaseModel):
     lugar_nacimiento_lng: Optional[float] = Field(None, ge=-180, le=180)
     lugar_nacimiento_nombre: Optional[str] = None
     
-    @validator('hora_nacimiento')
+    @field_validator('hora_nacimiento')
     def validate_birth_time(cls, v):
         if v and (v.second != 0 or v.microsecond != 0):
             return time(v.hour, v.minute, 0)

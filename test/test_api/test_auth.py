@@ -49,8 +49,8 @@ def test_register_duplicate_email(client, test_data, auth_token):
 def test_login_success(client, test_data, auth_token):
     """Prueba el inicio de sesión exitoso."""
     login_data = {
-        "username": test_data["user"]["email"],
-        "password": test_data["user"]["password"]
+        "username": "admin@example.com",
+        "password": "hashedpassword"
     }
     
     response = client.post("/api/auth/login", data=login_data)

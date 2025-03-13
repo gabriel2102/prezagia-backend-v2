@@ -7,7 +7,7 @@ que realizan los usuarios (historial de búsquedas, etc.)
 
 from datetime import datetime, date
 from typing import Optional, List, Dict, Any, Union
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
 
 from app.schemas.schema_base import BaseResponseModel
 

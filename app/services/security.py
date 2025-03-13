@@ -211,6 +211,13 @@ async def get_current_admin_user(current_user: Annotated[UserResponse, Depends(g
         )
     return current_user
 
+from passlib.context import CryptContext
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def get_password_hash(password: str) -> str:
+    """Genera un hash seguro de una contraseña."""
+    return pwd_context.hash(password)
 
 async def verify_refresh_token(refresh_token: str) -> Optional[UserResponse]:
     """

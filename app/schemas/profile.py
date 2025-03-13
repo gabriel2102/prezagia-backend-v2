@@ -6,7 +6,7 @@ Este módulo define los modelos de datos relacionados con los perfiles astrológ
 
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
 
 from app.schemas.schema_base import BaseResponseModel
 

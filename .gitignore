@@ -81,4 +81,6 @@ site/
 *.crt
 *.cert
 
-*.env
+.env
+.env.test
+.env*
